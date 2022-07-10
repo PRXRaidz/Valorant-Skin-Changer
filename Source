@@ -1,0 +1,52 @@
+
+ 
+Code:
+SIG: E8 ? ? ? ? 48 89 83 ? ? ? ? 48 8B 4C 24 ? 48 85 C9 74 05 // Probably has changed idk for sure lol
+typedef uintptr_t(__fastcall* staticLoadObject_t)(UObject* objectclass, UObject* InOuter, const wchar_t* origInname, const wchar_t* filename, UINT32 LoadFlags, uintptr_t Sandbox, bool AllowReconciliation, uintptr_t InstancingContext);
+extern staticLoadObject_t fn_StaticLoadObject;
+ 
+Alright, now we have the most important function to load objects that aren't loaded, now we need to get the weapon material and mesh.
+ 
+Code:
+    auto MaterialClass = Engine::FindObject(L"/Script/Engine.MaterialInstanceConstant");
+    auto StaticWeaponMesh = Engine::FindObject(L"/Script/Engine.SkeletalMesh");
+ 
+material = Engine::fn_StaticLoadObject((Engine::UObject*)MaterialClass,
+        0, L"/Game/Equippables/Melee/Dragon/1P/Materials/EQ_Melee_Dragon_MI.EQ_Melee_Dragon_MI", 0, 0, 0, true, 0);
+ 
+wepmesh = Engine::fn_StaticLoadObject((Engine::UObject*)StaticWeaponMesh,
+        0, L"/Game/Equippables/Melee/Dragon/1P/Models/GN_Melee_Dragon_Skelmesh.GN_Melee_Dragon_Skelmesh", 0, 0, 0, true, 0);
+ 
+Nice, now we have the material and mesh, now we just need to apply it, we can either do this by calling UpdateMesh and UpdateMaterial or with the following code:
+ 
+Code:
+ void ApplySkin(uintptr_t Mesh, uintptr_t Material, uintptr_t weapon)
+    {
+ 
+        if (Mesh && Material && weapon) {
+ 
+            uintptr_t pMesh1P = *(uintptr_t*)(weapon + OFF_WEAPONMESH1P);
+ 
+            if (pMesh1P) {
+ 
+                *(uintptr_t*)(pMesh1P + OFF_SKELETALMESH) = Mesh;
+                *(uintptr_t*)(pMesh1P + 0x20) = Material;
+                *(uintptr_t*)(pMesh1P + OFF_OVERRIDEMATERIALS) = pMesh1P + 0x20;
+                *(uint32_t*)(pMesh1P + OFF_OVERRIDEMATERIALS + 8) = 1;
+            }
+        }
+    }
+ 
+How can we find the names of the mesh/material for the skins ?
+That is easy, they can be found inside the paks, use FModel to explore the paks.
+ 
+Code:
+AES KEY: 0x4BE71AF2459CF83899EC9DC2CB60E22AC4B3047E0211034BBABE9D174C069DD6
+AES KEY SIG: C7 45 ? ? ? ? ? C7 45 ? ? ? ? ? C7 45 ? ? ? ? ? C7 45 ? ? ? ? ? 0F 10 45 D0
+ 
+Example for the Vandal dragon skin:
+Load the paks folder, navigate to 
+ 
+ShooterGame->Content->Equippables->Guns->Rifles->AK->Dragon->1P->Materials, then click on the Assets tab, look for the _MI one, and thats the asset u want
+ 
+Then the material path to load the object would be. /Game/Equippables/Guns/Rifles/AK/Dragon/1P/Materials/AK_Dragon_MI.AK_Dragon_MI
